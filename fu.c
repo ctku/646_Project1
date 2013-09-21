@@ -627,6 +627,43 @@ fu_fp_done(fu_fp_t *fu_list)
   return TRUE;
 }
 
+int
+fu_int_cycles(fu_int_t *fu_list)
+{
+  fu_int_t *fu;
+  fu_int_stage_t *stage;
+  int cycles = 0;
+
+  fu = fu_list;
+  if (fu != NULL) {
+    stage = fu->stage_list;
+    while (stage != NULL) {
+      cycles += stage->num_cycles;
+      stage = stage->prev;
+    }
+  }
+
+  return cycles;
+}
+
+int
+fu_fp_cycles(fu_fp_t *fu_list)
+{
+  fu_fp_t *fu;
+  fu_fp_stage_t *stage;
+  int cycles = 0;
+
+  fu = fu_list;
+  if (fu != NULL) {
+    stage = fu->stage_list;
+    while (stage != NULL) {
+      cycles += stage->num_cycles;
+      stage = stage->prev;
+    }
+  }
+
+  return cycles;
+}
 
 /* decode an instruction */
 const op_info_t *
