@@ -153,4 +153,4 @@ extern int fu_int_cycles(fu_int_t *);
 extern int fu_fp_cycles(fu_fp_t *);
 
 const op_info_t *decode_instr(int, int *);
-extern void perform_operation(int, unsigned long, operand_t, operand_t, operand_t *);
+extern void perform_operation(int, operand_t, operand_t, operand_t *);

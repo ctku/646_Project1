@@ -53,6 +53,8 @@ main(int argc, char *argv[]) {
     printf("\n\n*** CYCLE %d\n", i);
     print_state(state, data_count);
 
+	if (i==15) break;
+
     writeback(state, &num_insn);
     execute(state);
     if (!(state->fetch_lock)) {

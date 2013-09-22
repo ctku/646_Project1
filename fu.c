@@ -461,230 +461,228 @@ fu_fp_read(fu_fp_t **fu_fp_list,FILE *file) {
 /* Functions to allocate functional units */
 int
 issue_fu_int(fu_int_t *fu_list, int instr) {
-  fu_int_t *fu;
-  fu_int_stage_t *stage;
+	fu_int_t *fu;
+	fu_int_stage_t *stage;
 
-  fu = fu_list;
-  while (fu != NULL) {
-    stage = fu->stage_list;
-    while (stage->prev != NULL)
-      stage = stage->prev;
-    if (stage->current_cycle == -1) {
-      stage->current_cycle = stage->num_cycles-1;
-      stage->instr = instr;
-      return 0;
-    }
-    fu = fu->next;
-  }
-  return -1;   // structural hazard... stall
+	fu = fu_list;
+	while (fu != NULL) {
+		stage = fu->stage_list;
+		while (stage->prev != NULL)
+			stage = stage->prev;
+		if (stage->current_cycle == -1) {
+			stage->current_cycle = stage->num_cycles-1;
+			stage->instr = instr;
+			return 0;
+		}
+		fu = fu->next;
+	}
+	return -1;   // structural hazard... stall
 }
 
 
 int
 issue_fu_fp(fu_fp_t *fu_list, int instr) {
-  fu_fp_t *fu;
-  fu_fp_stage_t *stage;
+	fu_fp_t *fu;
+	fu_fp_stage_t *stage;
 
-  fu = fu_list;
-  while (fu != NULL) {
-    stage = fu->stage_list;
-    while (stage->prev != NULL)
-      stage = stage->prev;
-    if (stage->current_cycle == -1) {
-      stage->current_cycle = stage->num_cycles-1;
-      stage->instr = instr;
-      return 0;
-    }
-    fu = fu->next;
-  }
-  return -1;   // structural hazard... stall
+	fu = fu_list;
+	while (fu != NULL) {
+		stage = fu->stage_list;
+		while (stage->prev != NULL)
+			stage = stage->prev;
+		if (stage->current_cycle == -1) {
+			stage->current_cycle = stage->num_cycles-1;
+			stage->instr = instr;
+			return 0;
+		}
+		fu = fu->next;
+	}
+	return -1;   // structural hazard... stall
 }
-
 
 /* functions to cycle functional units */
 void
 advance_fu_int(fu_int_t *fu_list, wb_t *int_wb) {
-  fu_int_t *fu;
-  fu_int_stage_t *stage, *next_stage;
-  int i;
+	fu_int_t *fu;
+	fu_int_stage_t *stage, *next_stage;
+	int i;
 
-  fu = fu_list;
-  while (fu != NULL) {
-    stage = fu->stage_list;
-    next_stage = NULL;
-    while (stage != NULL) {
-      switch (stage->current_cycle) {
-	/* is fu stage free? */
-      case -1:
-	break;                                      /* do nothing */
+	fu = fu_list;
+	while (fu != NULL) {
+		stage = fu->stage_list;
+		next_stage = NULL;
+		while (stage != NULL) {
+			switch (stage->current_cycle) {
+			/* is fu stage free? */
+			case -1:
+				break;                                       /* do nothing */
 
-	/* is fu stage done processing? */
-      case 0:
-	if (next_stage == NULL) {                    /* is this the last stage in the fu? */
-	  int_wb->instr = stage->instr;
-	  stage->current_cycle = -1;
-	} else {
-	  if (next_stage->current_cycle == -1) {     /* move to next fu stage */
-	    next_stage->current_cycle = next_stage->num_cycles-1;
-	    next_stage->instr = stage->instr;
-	    stage->current_cycle = -1;
-	  }
+			/* is fu stage done processing? */
+			case 0:
+				if (next_stage == NULL) {                    /* is this the last stage in the fu? */
+					int_wb->instr = stage->instr;
+					stage->current_cycle = -1;
+				} else {
+					if (next_stage->current_cycle == -1) {    /* move to next fu stage */
+						next_stage->current_cycle = next_stage->num_cycles-1;
+						next_stage->instr = stage->instr;
+						stage->current_cycle = -1;
+					}
+				}
+				break;
+
+			/*  fu stage is still processing */
+			default:
+				stage->current_cycle--;
+			}
+			next_stage = stage;
+			stage = stage->prev;
+		}
+		fu = fu->next;
 	}
-	break;
-
-	/*  fu stage is still processing */
-      default:
-	stage->current_cycle--;
-      }
-      next_stage = stage;
-      stage = stage->prev;
-    }
-    fu = fu->next;
-  }
 }
 
 
 void
 advance_fu_fp(fu_fp_t *fu_list, wb_t *fp_wb) {
-  fu_fp_t *fu;
-  fu_fp_stage_t *stage, *next_stage;
-  int i;
+	fu_fp_t *fu;
+	fu_fp_stage_t *stage, *next_stage;
+	int i;
 
-  fu = fu_list;
-  while (fu != NULL) {
-    stage = fu->stage_list;
-    next_stage = NULL;
-    while(stage != NULL) {
-      switch(stage->current_cycle) {
-	/* is fu stage free? */
-      case -1:                                      /* do nothing */
-	break;
+	fu = fu_list;
+	while (fu != NULL) {
+		stage = fu->stage_list;
+		next_stage = NULL;
+		while(stage != NULL) {
+			switch(stage->current_cycle) {
+			/* is fu stage free? */
+			case -1:                                          /* do nothing */
+				break;
 
-	/* is fu stage done processing? */
-      case 0:
-	if(next_stage == NULL) {                  /* is this the last stage in the fu? */
-	  fp_wb->instr = stage->instr;
-	  stage->current_cycle = -1;
-	} else {
-	  if(next_stage->current_cycle == -1) {                                  /* move to next fu stage */
-	    next_stage->current_cycle = next_stage->num_cycles-1;
-	    next_stage->instr = stage->instr;
-	    stage->current_cycle = -1;
-	  }
+			/* is fu stage done processing? */
+			case 0:
+				if(next_stage == NULL) {                      /* is this the last stage in the fu? */
+					fp_wb->instr = stage->instr;
+					stage->current_cycle = -1;
+				} else {
+					if(next_stage->current_cycle == -1) {                                  /* move to next fu stage */
+						next_stage->current_cycle = next_stage->num_cycles-1;
+						next_stage->instr = stage->instr;
+						stage->current_cycle = -1;
+					}
+				}
+			break;
+
+			/* fu stage is still processing */
+			default:   
+				stage->current_cycle--;
+			}
+			next_stage = stage;
+			stage = stage->prev;
+		}
+		fu = fu->next;
 	}
-	break;
-
-	/* fu stage is still processing */
-      default:   
-	stage->current_cycle--;
-      }
-      next_stage = stage;
-      stage = stage->prev;
-    }
-    fu = fu->next;
-  }
 }
 
 
 int
 fu_int_done(fu_int_t *fu_list)
 {
-  fu_int_t *fu;
-  fu_int_stage_t *stage;
+	fu_int_t *fu;
+	fu_int_stage_t *stage;
 
-  fu = fu_list;
-  while (fu != NULL) {
-    stage = fu->stage_list;
-    while (stage != NULL) {
-      if (stage->current_cycle != -1)
-	return FALSE;
-      stage = stage->prev;
-    }
-    fu = fu->next;
-  }
+	fu = fu_list;
+	while (fu != NULL) {
+		stage = fu->stage_list;
+		while (stage != NULL) {
+			if (stage->current_cycle != -1)
+				return FALSE;
+			stage = stage->prev;
+		}
+		fu = fu->next;
+	}
 
-  return TRUE;
+	return TRUE;
 }
 
 
 int
 fu_fp_done(fu_fp_t *fu_list)
 {
-  fu_fp_t *fu;
-  fu_fp_stage_t *stage;
+	fu_fp_t *fu;
+	fu_fp_stage_t *stage;
 
-  fu = fu_list;
-  while (fu != NULL) {
-    stage = fu->stage_list;
-    while (stage != NULL) {
-      if (stage->current_cycle != -1)
-	return FALSE;
-      stage = stage->prev;
-    }
-    fu = fu->next;
-  }
+	fu = fu_list;
+	while (fu != NULL) {
+		stage = fu->stage_list;
+		while (stage != NULL) {
+			if (stage->current_cycle != -1)
+				return FALSE;
+			stage = stage->prev;
+		}
+		fu = fu->next;
+	}
 
-  return TRUE;
+	return TRUE;
 }
 
 int
-fu_int_cycles(fu_int_t *fu_list)
+fu_int_cycles(fu_int_t *fu_list) // added
 {
-  fu_int_t *fu;
-  fu_int_stage_t *stage;
-  int cycles = 0;
+	fu_int_t *fu;
+	fu_int_stage_t *stage;
+	int cycles = 0;
 
-  fu = fu_list;
-  if (fu != NULL) {
-    stage = fu->stage_list;
-    while (stage != NULL) {
-      cycles += stage->num_cycles;
-      stage = stage->prev;
-    }
-  }
+	fu = fu_list;
+	if (fu != NULL) {
+		stage = fu->stage_list;
+		while (stage != NULL) {
+			cycles += stage->num_cycles;
+			stage = stage->prev;
+		}
+	}
 
-  return cycles;
+	return cycles;
 }
 
 int
-fu_fp_cycles(fu_fp_t *fu_list)
+fu_fp_cycles(fu_fp_t *fu_list) // added
 {
-  fu_fp_t *fu;
-  fu_fp_stage_t *stage;
-  int cycles = 0;
+	fu_fp_t *fu;
+	fu_fp_stage_t *stage;
+	int cycles = 0;
 
-  fu = fu_list;
-  if (fu != NULL) {
-    stage = fu->stage_list;
-    while (stage != NULL) {
-      cycles += stage->num_cycles;
-      stage = stage->prev;
-    }
-  }
+	fu = fu_list;
+	if (fu != NULL) {
+		stage = fu->stage_list;
+		while (stage != NULL) {
+			cycles += stage->num_cycles;
+			stage = stage->prev;
+		}
+	}
 
-  return cycles;
+	return cycles;
 }
 
 /* decode an instruction */
 const op_info_t *
 decode_instr(int instr, int *use_imm) {
-  const op_info_t *op_info;
+	const op_info_t *op_info;
 
-  if (op_table[FIELD_OPCODE(instr)].sub_table == NULL) {
-    op_info = &op_table[FIELD_OPCODE(instr)].info;
-    *use_imm = 1;
-  } else {
-    op_info = &op_table[FIELD_OPCODE(instr)].sub_table[FIELD_FUNC(instr)].info;
-    *use_imm = 0;
-  }
-  return op_info;
+	if (op_table[FIELD_OPCODE(instr)].sub_table == NULL) {
+		op_info = &op_table[FIELD_OPCODE(instr)].info;
+		*use_imm = 1;
+	} else {
+		op_info = &op_table[FIELD_OPCODE(instr)].sub_table[FIELD_FUNC(instr)].info;
+		*use_imm = 0;
+	}
+	return op_info;
 }
 
 
 /* perform an instruction */
 void
-perform_operation(int instr, unsigned long pc, operand_t operand1,
-		  operand_t operand2, operand_t *result)
+perform_operation(int instr, operand_t operand1, operand_t operand2, operand_t *result) // result added
 {
 	const op_info_t *op_info;
 	int use_imm;
