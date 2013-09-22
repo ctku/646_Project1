@@ -684,41 +684,94 @@ decode_instr(int instr, int *use_imm) {
 /* perform an instruction */
 void
 perform_operation(int instr, unsigned long pc, operand_t operand1,
-		  operand_t operand2)
+		  operand_t operand2, operand_t *result)
 {
-  const op_info_t *op_info;
-  int use_imm;
-  operand_t result;
+	const op_info_t *op_info;
+	int use_imm;
+	//operand_t result;
 
-  op_info = decode_instr(instr, &use_imm);
-  switch(op_info->fu_group_num) {
-  case FU_GROUP_INT:
-    switch(op_info->operation) {
-    case OPERATION_ADD:
-      result.integer.w = operand1.integer.w + operand2.integer.w;
-      break;
-    }
-    break;
+	op_info = decode_instr(instr, &use_imm);
+	switch (op_info->fu_group_num) {
+	case FU_GROUP_INT:
+		switch (op_info->operation) {
+		case OPERATION_ADD:
+			result->integer.w = operand1.integer.w + operand2.integer.w;
+			break;
+		case OPERATION_ADDU:
+			result->integer.wu = operand1.integer.wu + operand2.integer.wu;
+			break;
+		case OPERATION_SUB:
+			result->integer.w = operand1.integer.w - operand2.integer.w;
+			break;
+		case OPERATION_SUBU:
+			result->integer.wu = operand1.integer.wu - operand2.integer.wu;
+			break;
+		case OPERATION_SLL:
+			result->integer.w = operand1.integer.w << operand2.integer.w;
+			break;
+		case OPERATION_SRL:
+			result->integer.w = operand1.integer.w >> operand2.integer.w;
+			break;
+		case OPERATION_AND:
+			result->integer.w = operand1.integer.w & operand2.integer.w;
+			break;
+		case OPERATION_OR:
+			result->integer.w = operand1.integer.w | operand2.integer.w;
+			break;
+		case OPERATION_XOR:
+			result->integer.w = operand1.integer.w ^ operand2.integer.w;
+			break;
+		case OPERATION_SLT:
+			result->integer.w = (operand1.integer.w < operand2.integer.w);
+			break;
+		case OPERATION_SLTU:
+			result->integer.wu = (operand1.integer.wu < operand2.integer.wu);
+			break;
+		case OPERATION_SGT:
+			result->integer.w = (operand1.integer.w > operand2.integer.w);
+			break;
+		case OPERATION_SGTU:
+			result->integer.wu = (operand1.integer.wu > operand2.integer.wu);
+			break;
+		}
+		break;
+	case FU_GROUP_ADD:
+		switch (op_info->operation) {
+		case OPERATION_ADD:
+			result->flt = operand1.flt + operand2.flt;
+			break;
+		case OPERATION_SUB:
+			result->flt = operand1.flt - operand2.flt;
+			break;
+		}
+	case FU_GROUP_MULT:
+		switch (op_info->operation) {
+		case OPERATION_MULT:
+			result->flt = operand1.flt * operand2.flt;
+			break;
+		}
+		break;
+	case FU_GROUP_DIV:
+		switch (op_info->operation) {
+		case OPERATION_DIV:
+			result->flt = operand1.flt / operand2.flt;
+			break;
+		}
+		break;
+	case FU_GROUP_MEM:
+		result->integer.wu = operand1.integer.wu + operand2.integer.wu;
+		break;
+	case FU_GROUP_BRANCH:
+		break;
 
-  case FU_GROUP_ADD:
-  case FU_GROUP_MULT:
-  case FU_GROUP_DIV:
-    break;
+	case FU_GROUP_HALT:
+		break;
 
-  case FU_GROUP_MEM:
-    break;
+	case FU_GROUP_NONE:
+		break;
 
-  case FU_GROUP_BRANCH:
-    break;
-
-  case FU_GROUP_HALT:
-    break;
-
-  case FU_GROUP_NONE:
-    break;
-
-  case FU_GROUP_INVALID:
-    fprintf(stderr, "error: invalid opcode (instr = %.8X)\n", instr);
-  }
+	case FU_GROUP_INVALID:
+		fprintf(stderr, "error: invalid opcode (instr = %.8X)\n", instr);
+	}
 
 }

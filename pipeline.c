@@ -19,6 +19,110 @@ writeback(state_t *state, int *num_insn) {
 
 void
 execute(state_t *state) {
+
+	int instr = state->if_id.instr;
+	unsigned long pc = state->pc;
+	const op_info_t *op_info;
+	int use_imm = 0;
+	operand_t operand1, operand2, result;
+	unsigned int r1 = 0, r2 = 0, r3 = 0, imm = 0;
+
+	op_info = decode_instr(instr, &use_imm);
+	r1 = FIELD_R1(instr);
+	r2 = FIELD_R2(instr);
+	r3 = FIELD_R3(instr);
+	imm = FIELD_IMM(instr);
+
+	if (use_imm) {
+		if (op_info->name == NULL)
+			printf("0x%.8X",instr);
+		else {
+			switch(op_info->fu_group_num) {
+			case FU_GROUP_INT:
+				printf("%s R%d R%d #%d",op_info->name,FIELD_R2(instr),FIELD_R1(instr),FIELD_IMM(instr));
+				operand1 = *(operand_t *)&(state->rf_int.reg_int[r1]);
+				operand2 = *(operand_t *)&(imm);
+				perform_operation(instr, pc, operand1, operand2, &result);
+				state->rf_int.reg_int[r2] = result.integer;
+				break;
+			case FU_GROUP_MEM:
+				switch(op_info->data_type) {
+				case DATA_TYPE_W:
+					printf("%s R%d (%d)R%d",op_info->name,FIELD_R2(instr),FIELD_IMM(instr),FIELD_R1(instr));
+					operand1 = *(operand_t *)&(imm);
+					operand2 = *(operand_t *)&state->rf_int.reg_int[r1];
+					perform_operation(instr, pc, operand1, operand2, &result);
+					switch(op_info->operation) {
+					case OPERATION_LOAD://LW
+						state->rf_int.reg_int[r2].wu = state->mem[result.integer.wu];
+						break;
+					case OPERATION_STORE://SW
+						state->mem[result.integer.wu] = state->rf_int.reg_int[r2].wu;
+						break;
+					}
+					break;
+				case DATA_TYPE_F:
+					printf("%s F%d (%d)R%d",op_info->name,FIELD_R2(instr),FIELD_IMM(instr),FIELD_R1(instr));
+					operand1 = *(operand_t *)&(imm);
+					operand2 = *(operand_t *)&state->rf_int.reg_int[r1];
+					perform_operation(instr, pc, operand1, operand2, &result);
+					switch(op_info->operation) {
+					case OPERATION_LOAD://L.S
+						state->rf_fp.reg_fp[r2] = state->mem[result.integer.wu];
+						break;
+					case OPERATION_STORE://S.S
+						state->mem[result.integer.wu] = state->rf_fp.reg_fp[r2];
+						break;
+					}
+					break;
+				}
+				break;
+			case FU_GROUP_BRANCH:
+				switch(op_info->operation) {
+				case OPERATION_JAL:
+				case OPERATION_J:
+					printf("%s #%d",op_info->name,FIELD_OFFSET(instr));
+					break;
+				case OPERATION_JALR:
+				case OPERATION_JR:
+					printf("%s R%d",op_info->name,FIELD_R1(instr));
+					break;
+				case OPERATION_BEQZ:
+				case OPERATION_BNEZ:
+					printf("%s R%d #%d",op_info->name,FIELD_R1(instr),FIELD_IMM(instr));
+					break;
+				}
+				break;
+			default:
+				printf("%s",op_info->name);
+			}
+		}
+	} else {
+		if(op_info->name == NULL)
+			printf("0x%.8X",instr);
+		else {
+			switch(op_info->fu_group_num) {
+			case FU_GROUP_INT:
+				printf("%s R%d R%d R%d",op_info->name,FIELD_R3(instr),FIELD_R1(instr),FIELD_R2(instr));
+				operand1 = *(operand_t *)&state->rf_int.reg_int[r1];
+				operand2 = *(operand_t *)&state->rf_int.reg_int[r2];
+				perform_operation(instr, pc, operand1, operand2, &result);
+				state->rf_int.reg_int[r3] = result.integer;
+				break;
+			case FU_GROUP_ADD:
+			case FU_GROUP_MULT:
+			case FU_GROUP_DIV:
+				printf("%s F%d F%d F%d",op_info->name,FIELD_R3(instr),FIELD_R1(instr),FIELD_R2(instr));
+				operand1 = *(operand_t *)&state->rf_fp.reg_fp[r1];
+				operand2 = *(operand_t *)&state->rf_fp.reg_fp[r2];
+				perform_operation(instr, pc, operand1, operand2, &result);
+				state->rf_fp.reg_fp[r3] = result.flt;
+				break;
+			default:
+				printf("%s",op_info->name);
+			}
+		}
+	}
 }
 
 
@@ -28,7 +132,6 @@ decode(state_t *state) {
 	// decode to get op_info
 	const op_info_t *op_info;
 	int use_imm;
-	operand_t result;
 	fu_int_t *fu_int;
 	fu_fp_t *fu_fp;
 	fu_int_stage_t *stage_int;
@@ -117,6 +220,10 @@ decode(state_t *state) {
 	}
 
     // check control hazard
+	// TBD
+
+	// issue instruction
+	// TBD
 }
 
 
