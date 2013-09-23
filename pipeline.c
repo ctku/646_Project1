@@ -223,24 +223,23 @@ check_data_hazard(state_t *state, int instr) {
 	op_info = decode_instr(instr, &use_imm);
     switch (op_info->fu_group_num) {
 	case FU_GROUP_INT:
+	case FU_GROUP_MEM:
 	    fu_int = state->fu_int_list;
 		while ((fu_int != NULL) && (!data_hazard)) {
 			stage_int = fu_int->stage_list;
 			while ((stage_int != NULL) && (!data_hazard)) {
 				if (stage_int->current_cycle != -1) {
-					// check for RAW
 					int cur_r1 = FIELD_R1(instr);
 					int cur_r2 = FIELD_R2(instr);
+					int cur_rd = get_dest_reg_idx(instr);
 					int pre_rd = get_dest_reg_idx(stage_int->instr);
+					// check for RAW
 					if ((cur_r1 == pre_rd) || (cur_r2 == pre_rd))
 						return TRUE;
-					/*
 					// check for WAW
-					if ((FIELD_R3(instr) == FIELD_R3(stage_int->instr)) && 
-						!exist_struct &&
+					if ((cur_rd == pre_rd) && 
 						(fu_int_cycles(fu_int) < (stage_int->num_cycles - stage_int->current_cycle)))
-						exist_WAW = 1;
-					*/
+						return TRUE;
 				}
 				stage_int = stage_int->prev;
 			}
@@ -260,16 +259,14 @@ check_data_hazard(state_t *state, int instr) {
 					// check for RAW
 					int cur_r1 = FIELD_R1(instr);
 					int cur_r2 = FIELD_R2(instr);
+					int cur_rd = get_dest_reg_idx(instr);
 					int pre_rd = get_dest_reg_idx(stage_fp->instr);
 					if ((cur_r1 == pre_rd) || (cur_r2 == pre_rd))
 						return TRUE;
-					/*
 					// check for WAW
-					if ((FIELD_R3(instr) == FIELD_R3(stage_int->instr)) && 
-						!exist_struct &&
-						(fu_int_cycles(fu_int) < (stage_int->num_cycles - stage_int->current_cycle)))
-						exist_WAW = 1;
-					*/
+					if ((cur_rd == pre_rd) && 
+						(fu_fp_cycles(fu_fp) < (stage_int->num_cycles - stage_int->current_cycle)))
+						return TRUE;
 				}
 				stage_fp = stage_fp->prev;
 			}

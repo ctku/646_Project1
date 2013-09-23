@@ -51,7 +51,7 @@ main(int argc, char *argv[]) {
   /* main sim loop */
   for (i = 0, num_insn = 0; TRUE; i++) {
 
-    if (i==4)
+    if (i==8)
       i = i;
 
     printf("\n\n*** CYCLE %d\n", i);
