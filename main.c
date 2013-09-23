@@ -29,6 +29,7 @@ static int wbpf = -1;
 
 
 /************************************************************/
+
 int
 main(int argc, char *argv[]) {
   state_t *state;
@@ -49,6 +50,9 @@ main(int argc, char *argv[]) {
 
   /* main sim loop */
   for (i = 0, num_insn = 0; TRUE; i++) {
+
+    if (i==4)
+      i = i;
 
     printf("\n\n*** CYCLE %d\n", i);
     print_state(state, data_count);
