@@ -11,6 +11,45 @@
 #include "fu.h"
 #include "pipeline.h"
 
+#define ENDIAN	LITTLE_ENDIAN
+
+#define BIG_ENDIAN	1
+#define LITTLE_ENDIAN	2
+
+/* some utility dunction */
+void store_4bytes(unsigned char *mem, int idx, int data)
+{
+	if (ENDIAN == LITTLE_ENDIAN) {
+		mem[idx] = (data & 0xFF000000) >> 24; 
+		mem[idx+1] = (data & 0xFF0000) >> 16;
+		mem[idx+2] = (data & 0xFF00) >> 8;
+		mem[idx+3] = (data & 0xFF);
+	} else {
+		mem[idx] = (data & 0xFF);
+		mem[idx+1] = (data & 0xFF00) >> 8;
+		mem[idx+2] = (data & 0xFF0000) >> 16;
+		mem[idx+3] = (data & 0xFF000000) >> 24;
+	}
+}
+int load_4bytes(unsigned char *mem, int idx)
+{
+	int data;
+	char *ptr = (char *)&data;
+
+	if (ENDIAN == LITTLE_ENDIAN) {
+		*ptr = mem[idx+3];
+		*(ptr+1) = mem[idx+2];
+		*(ptr+2) = mem[idx+1];
+		*(ptr+3) = mem[idx];
+	} else {
+		*ptr = mem[idx];
+		*(ptr+1) = mem[idx+1];
+		*(ptr+2) = mem[idx+2];
+		*(ptr+3) = mem[idx+3];
+	}
+	return data;
+}
+
 /* get destination register idx */
 int
 get_dest_reg_idx(int instr)
@@ -126,10 +165,11 @@ execute_instruction(int instr, rf_int_t *rf_int, rf_fp_t *rf_fp, unsigned char *
 					i = result.integer.wu;
 					switch(op_info->operation) {
 					case OPERATION_LOAD://LW
-						rf_int->reg_int[r2].wu = (mem[i]<<24) + (mem[i+1]<<16) + (mem[i+2]<<8) + (mem[i+3]);
+						rf_int->reg_int[r2].wu = load_4bytes(mem, i);
 						break;
 					case OPERATION_STORE://SW
-						mem[result.integer.wu] = rf_int->reg_int[r2].wu;
+						store_4bytes(mem, result.integer.wu, rf_int->reg_int[r2].wu);
+						//mem[TO_LT_ENDIAN_4BYTE_IDX(result.integer.wu)] = rf_int->reg_int[r2].wu;<====
 						break;
 					}
 					break;
@@ -141,10 +181,11 @@ execute_instruction(int instr, rf_int_t *rf_int, rf_fp_t *rf_fp, unsigned char *
 					i = result.integer.wu;
 					switch(op_info->operation) {
 					case OPERATION_LOAD://L.S
-						rf_fp->reg_fp[r2] = (mem[i]<<24) + (mem[i+1]<<16) + (mem[i+2]<<8) + (mem[i+3]);
+						rf_fp->reg_fp[r2] = (float)load_4bytes(mem, i);
 						break;
 					case OPERATION_STORE://S.S
-						mem[result.integer.wu] = rf_fp->reg_fp[r2];
+						store_4bytes(mem, result.integer.wu, (int)rf_fp->reg_fp[r2]);
+						//mem[TO_LT_ENDIAN_4BYTE_IDX(result.integer.wu)] = rf_fp->reg_fp[r2];
 						break;
 					}
 					break;
@@ -293,83 +334,47 @@ writeback(state_t *state, int *num_insn) {
 }
 
 
-void
+int
 execute(state_t *state) {
 
-	const op_info_t *op_info;
-	int use_imm = 0;
-	op_info = decode_instr(state->if_id.instr, &use_imm);
+	// check if HALT is found and all job finished
+	if (fu_int_done(state->fu_int_list) &&
+		fu_fp_done(state->fu_add_list) &&
+		fu_fp_done(state->fu_mult_list) &&
+		fu_fp_done(state->fu_div_list) &&
+		state->halt)
+		return 1;
 
 	// check if data hazard resolved
-	if (check_data_hazard(state, state->if_id.instr))
-		state->fetch_lock = TRUE;
-	else
-		state->fetch_lock = FALSE;
+	if (!state->halt) {
+		if (check_data_hazard(state, state->if_id.instr))
+			state->fetch_lock = TRUE;
+		else
+			state->fetch_lock = FALSE;
+	}
 
 	// advance function unit
-	switch(op_info->fu_group_num) {
-	case FU_GROUP_INT:
-	case FU_GROUP_MEM:
-		advance_fu_int(state->fu_int_list, &state->int_wb);
-		break;
-	case FU_GROUP_ADD:
-		advance_fu_fp(state->fu_add_list, &state->fp_wb);
-		break;
-	case FU_GROUP_MULT:
-		advance_fu_fp(state->fu_mult_list, &state->fp_wb);
-		break;
-	case FU_GROUP_DIV:
-		advance_fu_fp(state->fu_div_list, &state->fp_wb);
-		break;
-	}
+	advance_fu_int(state->fu_int_list, &state->int_wb);
+	advance_fu_fp(state->fu_add_list, &state->fp_wb);
+	advance_fu_fp(state->fu_mult_list, &state->fp_wb);
+	advance_fu_fp(state->fu_div_list, &state->fp_wb);
+
+	return 0;
 }
 
 
 int
 decode(state_t *state) {
-
-	// decode to get op_info
 	const op_info_t *op_info;
-	int use_imm;
-	fu_int_t *fu_int;
-	fu_fp_t *fu_fp;
-	fu_int_stage_t *stage_int;
-	fu_fp_stage_t *stage_fp;
+	int use_imm, issue_ret = 0;
 	int instr = state->if_id.instr;
-	int exist_struct = 0;
-	int exist_RAW = 0;
-    int exist_WAW = 0;
-	int issue_ret = 0;
 	int structural_hazard = 0;
-
-	op_info = decode_instr(instr, &use_imm);
-
-#if 0
-	// check structural hazard
-    switch (op_info->fu_group_num) {
-	case FU_GROUP_INT:
-	    exist_struct &= !fu_int_done(state->fu_int_list);
-	    break;
-	case FU_GROUP_ADD:
-	    exist_struct &= !fu_fp_done(state->fu_add_list);
-	    break;
-	case FU_GROUP_MULT:
-	    exist_struct &= !fu_fp_done(state->fu_mult_list);
-	    break;
-	case FU_GROUP_DIV:
-	    exist_struct &= !fu_fp_done(state->fu_div_list);
-	    break;
-	default:
-		break;
-    }
-#endif
-
-
 
     // check control hazard
 	// TBD
 
 	// issue instruction
+	op_info = decode_instr(instr, &use_imm);
 	switch (op_info->fu_group_num) {
 	case FU_GROUP_INT:
 	case FU_GROUP_MEM:
@@ -385,26 +390,44 @@ decode(state_t *state) {
 		issue_ret = issue_fu_fp(state->fu_div_list, instr);
 		break;
 	}
-	if (issue_ret == -1)
+	if (issue_ret == -1) {
 		structural_hazard = 1;
-
-
+	}
+	
+	// return 0 means no instruction is issued
+	// return 1 means one instruction is issued
+	if (structural_hazard || (instr==0))
+		return 0;
+	else
+		return 1;
 }
 
 
 void
 fetch(state_t *state) {
 
-	// update pc & instruction
+	const op_info_t *op_info;
+	int use_imm;
 	int pc = state->pc;
-	int instr = (state->mem[pc]<<24) + (state->mem[pc+1]<<16) + (state->mem[pc+2]<<8) + (state->mem[pc+3]);
-	state->if_id.pc = pc;
-	state->if_id.instr = instr;
+	int old_instr, new_instr;
 
-	// advane pc by 4
-	state->pc += 4;
+	// read instructions
+	new_instr = load_4bytes(state->mem, pc);
+	old_instr = state->if_id.instr;
+
+	// stall if HALT is found
+	op_info = decode_instr(old_instr, &use_imm);
+	if (op_info->fu_group_num == FU_GROUP_HALT) {
+		state->fetch_lock = TRUE;
+		state->halt = TRUE;
+	}
 
 	// stall if data hazard happen
-	if (check_data_hazard(state, state->if_id.instr))
+	if (check_data_hazard(state, new_instr))
 		state->fetch_lock = TRUE;
+
+	// update pc & instruction
+	pc += 4;
+	state->pc = pc;
+	state->if_id.instr = new_instr;
 }

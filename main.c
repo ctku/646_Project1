@@ -32,46 +32,48 @@ static int wbpf = -1;
 
 int
 main(int argc, char *argv[]) {
-  state_t *state;
-  int data_count;
-  int num_insn, i;
+	state_t *state;
+	int data_count;
+	int num_insn, i, done = 0;
 
-  parse_args(argc, argv);
-  state = state_create(&data_count, bin_file, fu_file);
+	parse_args(argc, argv);
+	state = state_create(&data_count, bin_file, fu_file);
 
-  if (state == NULL) {
-    fclose(bin_file);
-    fclose(fu_file);
-    return -1;
-  }
+	if (state == NULL) {
+		fclose(bin_file);
+		fclose(fu_file);
+		return -1;
+	}
 
-  fclose(bin_file);
-  fclose(fu_file);
+	fclose(bin_file);
+	fclose(fu_file);
 
-  /* main sim loop */
-  for (i = 0, num_insn = 0; TRUE; i++) {
+	/* main sim loop */
+	for (i = 0, num_insn = 0; TRUE; i++) {
 
-    if (i==8)
-      i = i;
+		if (i==14)
+			i = i;
 
-    printf("\n\n*** CYCLE %d\n", i);
-    print_state(state, data_count);
+		printf("\n\n*** CYCLE %d\n", i);
+		print_state(state, data_count);
 
-	if (i==15) break;
+		if (done)
+			break;
 
-    writeback(state, &num_insn);
-    execute(state);
-    if (!(state->fetch_lock)) {
-      decode(state);
-      fetch(state);
-    }
-  }
+		writeback(state, &num_insn);
+		done = execute(state);
 
-  printf("SIMULATION COMPLETE!\n");
-  printf("EXECUTED %d INSTRUCTIONS IN %d CYCLES\n", num_insn, i);
-  printf("CPI:  %.2f\n", (float)i / (float)num_insn);
+		if (!(state->fetch_lock)) {
+			num_insn += decode(state);
+			fetch(state);
+		}
+	}
 
-  return 0;
+	printf("SIMULATION COMPLETE!\n");
+	printf("EXECUTED %d INSTRUCTIONS IN %d CYCLES\n", num_insn, i);
+	printf("CPI:  %.2f\n", (float)i / (float)num_insn);
+
+	return 0;
 }
 /************************************************************/
 
