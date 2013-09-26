@@ -10,6 +10,7 @@
 #include <stdlib.h>
 #include "fu.h"
 #include "pipeline.h"
+#include <string.h>
 
 
 /* some utility dunction */
@@ -247,7 +248,29 @@ execute_instruction(int instr, rf_int_t *rf_int, rf_fp_t *rf_fp, unsigned char *
 int
 check_data_hazard(state_t *state, int instr) {
 
-	// RAW:
+	// Table: check RAW hazard
+	//
+	//   \(cur)|   INT    | ADD  MULT DIV  |     MEM     |          BRANCH
+	//    \    |n-imm imm |                | lw sw ls ss | j jr jal jalr beqz bnez
+	//(pre)\   |  R1   R1 |  F1   F1   F1  | R1 R1 R1 R1 | - R1  -   R1   R1   R1
+	//      \  |  R2   -  |  F2   F2   F2  | -  R2 -  F2 | -  -  -   -    -    -
+	// ------\-+----------+----------------+-------------+-------------------------
+	//  INT(ls)|  -    -  |  FD   FD   FD  | -  -  -  FD | -  -  -   -    -    -
+	//    INT  |  RD   RD |  -    -    -   | RD RD RD RD | - RD  -   RD   RD   RD
+	//    ADD  |  -    -  |  FD   FD   FD  | -  -  -  FD | -  -  -   -    -    -
+	//    MULT |  -    -  |  FD   FD   FD  | -  -  -  FD | -  -  -   -    -    -
+	//    DIV  |  -    -  |  FD   FD   FD  | -  -  -  FD | -  -  -   -    -    -
+
+	// Table: check WAW hazard
+	//
+	//   \(cur)| ADD MULT  DIV |     MEM     
+	//    \    |               | lw sw ls ss
+	//(pre)\   |  RD   RD   RD | -  -  RD - 
+	// -----\--+---------------+------------
+	//    ADD  |  RD   RD   RD | -  -  RD - 
+	//    MULT |  RD   RD   RD | -  -  RD - 
+	//    DIV  |  RD   RD   RD | -  -  RD - 
+
 	// scan unfinished fu
 	//    check if (instr(R1) or instr(R2) == unfinished_instr(R3) in fu)
 	// WAW:
@@ -263,61 +286,96 @@ check_data_hazard(state_t *state, int instr) {
 	fu_fp_t *fu_fp;
 	fu_int_stage_t *stage_int;
 	fu_fp_stage_t *stage_fp;
-	int data_hazard = 0;
-	int cur_r1, cur_r2, cur_rd, pre_rd, i;
+	int done = 0, data_hazard = 0, check_FP = FALSE, i;
+	int cur_r1 = -1, cur_r2 = -2, cur_rd = -3, pre_rd = -4;
+	int cur_f1 = -5, cur_f2 = -6, cur_fd = -7, pre_fd = -8;
 
-	cur_r1 = FIELD_R1(instr);
-	cur_r2 = FIELD_R2(instr);
-	cur_rd = get_dest_reg_idx(instr);
 	op_info = decode_instr(instr, &use_imm);
+	switch (op_info->fu_group_num) {
+	case FU_GROUP_INT:
+		cur_r1 = FIELD_R1(instr);
+		if (!use_imm)
+			cur_r2 = FIELD_R2(instr);
+		break;
+	case FU_GROUP_ADD:
+	case FU_GROUP_MULT:
+	case FU_GROUP_DIV:
+		cur_f1 = FIELD_R1(instr);
+		cur_f2 = FIELD_R2(instr);
+		check_FP = TRUE;
+		break;
+	case FU_GROUP_MEM:
+		cur_r1 = FIELD_R1(instr);
+		if (strcmp(op_info->name, "SW") == 0)
+			cur_r2 = FIELD_R2(instr);
+		if (strcmp(op_info->name, "S.S") == 0) {
+			cur_f2 = FIELD_R2(instr);
+			check_FP = TRUE;
+		}
+		break;
+	case FU_GROUP_BRANCH:
+		if ((op_info->operation == OPERATION_JR) ||
+			(op_info->operation == OPERATION_JALR) ||
+			(op_info->operation == OPERATION_BEQZ) ||
+			(op_info->operation == OPERATION_BNEZ))
+			cur_r1 = FIELD_R1(instr);
+		else
+			done = 1;
+		break;
+	default:
+		done = 1;
+	}
 
-	// check INT FU
+	// no need to handle
+	if (done == 1)
+		return FALSE;
+
+	// everyone need to check INT FU
 	fu_int = state->fu_int_list;
 	while ((fu_int != NULL) && (!data_hazard)) {
 		stage_int = fu_int->stage_list;
 		while ((stage_int != NULL) && (!data_hazard)) {
 			if (stage_int->current_cycle != -1) {
+				const op_info_t *pre_op_info;
+				int use_imm = 0;
+				pre_op_info = decode_instr(stage_int->instr, &use_imm);
 				pre_rd = get_dest_reg_idx(stage_int->instr);
 				// check for RAW
-				if ((cur_r1 == pre_rd) || (cur_r2 == pre_rd))
-					return TRUE;
-				// check for WAW
-				/*
-				if (op_info->fu_group_num != FU_GROUP_BRANCH)
-					if ((cur_rd == pre_rd) && 
-						(fu_int_cycles(fu_int) < (stage_int->num_cycles - stage_int->current_cycle)))
+				if (strcmp(pre_op_info->name, "L.S") == 0) {
+					if ((cur_f1 == pre_rd) || (cur_f2 == pre_rd))
 						return TRUE;
-				*/
+				} else {
+					if ((cur_r1 == pre_rd) || (cur_r2 == pre_rd))
+						return TRUE;
+				}
 			}
 			stage_int = stage_int->prev;
 		}
 		fu_int = fu_int->next;
 	}
-
+	
 	// check ADD/MULT/DIV FU
-	for (i=0; i<3; i++) {
-		if (i==0) fu_fp = state->fu_add_list;
-		if (i==1) fu_fp = state->fu_mult_list;
-		if (i==2) fu_fp = state->fu_div_list;
-		while ((fu_fp != NULL) && (!data_hazard)) {
-			stage_fp = fu_fp->stage_list;
-			while ((stage_fp != NULL) && (!data_hazard)) {
-				if (stage_fp->current_cycle != -1) {
-					pre_rd = get_dest_reg_idx(stage_fp->instr);
-					// check for RAW
-					if ((cur_r1 == pre_rd) || (cur_r2 == pre_rd))
-						return TRUE;
-					// check for WAW
-					/*
-					if (op_info->fu_group_num != FU_GROUP_BRANCH)
-						if ((cur_rd == pre_rd) && 
-							(fu_fp_cycles(fu_fp) < (stage_fp->num_cycles - stage_fp->current_cycle)))
+	if (check_FP) {
+		for (i=0; i<3; i++) {
+			if (i==0) fu_fp = state->fu_add_list;
+			if (i==1) fu_fp = state->fu_mult_list;
+			if (i==2) fu_fp = state->fu_div_list;
+			while ((fu_fp != NULL) && (!data_hazard)) {
+				stage_fp = fu_fp->stage_list;
+				while ((stage_fp != NULL) && (!data_hazard)) {
+					if (stage_fp->current_cycle != -1) {
+						const op_info_t *pre_op_info;
+						int use_imm = 0;
+						pre_op_info = decode_instr(stage_fp->instr, &use_imm);
+						pre_fd = get_dest_reg_idx(stage_fp->instr);
+						// check for RAW
+						if ((cur_f1 == pre_fd) || (cur_f2 == pre_fd))
 							return TRUE;
-					*/
+					}
+					stage_fp = stage_fp->prev;
 				}
-				stage_fp = stage_fp->prev;
+				fu_fp = fu_fp->next;
 			}
-			fu_fp = fu_fp->next;
 		}
 	}
 
