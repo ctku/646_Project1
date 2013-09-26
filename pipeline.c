@@ -15,17 +15,11 @@
 /* some utility dunction */
 void store_4bytes(unsigned char *mem, int idx, int data)
 {
-	if (ENDIAN == LITTLE_ENDIAN) {
-		mem[idx] = (data & 0xFF000000) >> 24; 
-		mem[idx+1] = (data & 0xFF0000) >> 16;
-		mem[idx+2] = (data & 0xFF00) >> 8;
-		mem[idx+3] = (data & 0xFF);
-	} else {
-		mem[idx] = (data & 0xFF);
-		mem[idx+1] = (data & 0xFF00) >> 8;
-		mem[idx+2] = (data & 0xFF0000) >> 16;
-		mem[idx+3] = (data & 0xFF000000) >> 24;
-	}
+	mem[idx] = (data & 0xFF000000) >> 24; 
+	mem[idx+1] = (data & 0xFF0000) >> 16;
+	mem[idx+2] = (data & 0xFF00) >> 8;
+	mem[idx+3] = (data & 0xFF);
+
 }
 int load_4bytes(unsigned char *mem, int idx)
 {
