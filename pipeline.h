@@ -6,11 +6,24 @@
  * Donald Yeung
  */
 
+//#define DEBUG
+#ifdef DEBUG
+#define dprintf(fmt,...) fprintf(stdout,fmt,__VA_ARGS__)
+#else
+#define dprintf(fmt,...)
+#endif
+
+#define ENDIAN	LITTLE_ENDIAN
+#define BIG_ENDIAN	1
+#define LITTLE_ENDIAN	2
+
+#define CTRL_HAZARD 4
+#define DATA_HAZARD 3
+#define HALT 2
 #define TRUE 1
 #define FALSE 0
 
-#define TO_LT_ENDIAN_4BYTE_IDX(x)			((x%4==0)?(x+3):((x%4==1)?(x+1):(x%4==2)?(x-1):(x-3)))
-#define GET_LT_ENDIAN_4BYTE_DATA(mem,x)		((mem[x]<<24) + (mem[x+1]<<16) + (mem[x+2]<<8) + (mem[x+3]))
+
 
 /* fetch/decode pipeline register */
 typedef struct _if_id_t {
@@ -51,7 +64,7 @@ typedef struct _state_t {
   wb_t fp_wb;
 
   int fetch_lock;
-  int halt;
+  int branch_taken;
 } state_t;
 
 extern state_t *state_create(int *, FILE *, FILE *);

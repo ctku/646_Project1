@@ -682,11 +682,10 @@ decode_instr(int instr, int *use_imm) {
 
 /* perform an instruction */
 void
-perform_operation(int instr, operand_t operand1, operand_t operand2, operand_t *result) // result added
+perform_operation(int instr, unsigned long *pc, operand_t operand1, operand_t operand2, operand_t *result) // result added
 {
 	const op_info_t *op_info;
-	int use_imm;
-	//operand_t result;
+	int use_imm, offset;
 
 	op_info = decode_instr(instr, &use_imm);
 	switch (op_info->fu_group_num) {

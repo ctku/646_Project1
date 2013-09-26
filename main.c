@@ -51,23 +51,30 @@ main(int argc, char *argv[]) {
 	/* main sim loop */
 	for (i = 0, num_insn = 0; TRUE; i++) {
 
-		if (i==14)
+		if (i==284)
 			i = i;
 
 		printf("\n\n*** CYCLE %d\n", i);
 		print_state(state, data_count);
 
-		if (done)
-			break;
-
+		dprintf("[%d][W]\n",i);
 		writeback(state, &num_insn);
+		dprintf("[%d][E]\n",i);
 		done = execute(state);
 
+		if (done) //15,285
+			break;
+
 		if (!(state->fetch_lock)) {
-			num_insn += decode(state);
+			dprintf("[%d][D]\n",i);
+			decode(state);
+			dprintf("[%d][F]\n",i);
 			fetch(state);
 		}
 	}
+
+	// we ignore all HALT, but last HALT should count in
+	num_insn = num_insn + 1;
 
 	printf("SIMULATION COMPLETE!\n");
 	printf("EXECUTED %d INSTRUCTIONS IN %d CYCLES\n", num_insn, i);
