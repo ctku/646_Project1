@@ -14,9 +14,9 @@
 #endif
 
 // used by windows
-#define ENDIAN	LITTLE_ENDIAN
+//#define ENDIAN	LITTLE_ENDIAN
 // used by glue server
-//#define ENDIAN	BIG_ENDIAN//
+#define ENDIAN	BIG_ENDIAN//
 
 #define BIG_ENDIAN	1
 #define LITTLE_ENDIAN	2

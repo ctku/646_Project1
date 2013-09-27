@@ -526,7 +526,7 @@ void
 writeback(state_t *state, int *num_insn) {
 	const op_info_t *op_info;
 	int use_imm, exec = 0;
-	int pc = state->pc;
+	unsigned long pc = state->pc;
 
 	// increase num_insn
 	if (state->int_wb.instr!=0)
