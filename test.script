@@ -1,0 +1,19 @@
+make clean
+make asm
+make mipsim
+asm simple.s simple.bin
+asm vect.s vect.bin
+asm newton.s newton.bin
+asm cos.s cos.bin
+\rm simple.my.out
+\rm newton.my.out
+\rm vect.my.out
+\rm cos.my.out
+mipsim -b simple.bin -o io_pipe.fu > simple.my.out
+mipsim -b newton.bin -o io_pipe.fu > newton.my.out
+mipsim -b vect.bin -o io_pipe.fu > vect.my.out
+mipsim -b cos.bin -o io_pipe.fu > cos.my.out
+diff simple.my.out simple.io.out
+diff newton.my.out newton.io.out
+diff vect.my.out vect.io.out
+diff cos.my.out cos.io.out
