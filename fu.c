@@ -460,7 +460,7 @@ fu_fp_read(fu_fp_t **fu_fp_list,FILE *file) {
 
 /* Functions to allocate functional units */
 int
-issue_fu_int(fu_int_t *fu_list, int instr) {
+issue_fu_int(fu_int_t *fu_list, int instr, operand_t op1, operand_t op2) {
 	fu_int_t *fu;
 	fu_int_stage_t *stage;
 
@@ -472,6 +472,8 @@ issue_fu_int(fu_int_t *fu_list, int instr) {
 		if (stage->current_cycle == -1) {
 			stage->current_cycle = stage->num_cycles-1;
 			stage->instr = instr;
+			stage->op1 = op1;
+			stage->op2 = op2;
 			return 0;
 		}
 		fu = fu->next;
@@ -481,7 +483,7 @@ issue_fu_int(fu_int_t *fu_list, int instr) {
 
 
 int
-issue_fu_fp(fu_fp_t *fu_list, int instr) {
+issue_fu_fp(fu_fp_t *fu_list, int instr,  operand_t op1, operand_t op2) {
 	fu_fp_t *fu;
 	fu_fp_stage_t *stage;
 
@@ -493,6 +495,8 @@ issue_fu_fp(fu_fp_t *fu_list, int instr) {
 		if (stage->current_cycle == -1) {
 			stage->current_cycle = stage->num_cycles-1;
 			stage->instr = instr;
+			stage->op1 = op1;
+			stage->op2 = op2;
 			return 0;
 		}
 		fu = fu->next;
@@ -521,11 +525,15 @@ advance_fu_int(fu_int_t *fu_list, wb_t *int_wb) {
 			case 0:
 				if (next_stage == NULL) {                    /* is this the last stage in the fu? */
 					int_wb->instr = stage->instr;
+					int_wb->op1 = stage->op1;
+					int_wb->op2 = stage->op2;
 					stage->current_cycle = -1;
 				} else {
 					if (next_stage->current_cycle == -1) {    /* move to next fu stage */
 						next_stage->current_cycle = next_stage->num_cycles-1;
 						next_stage->instr = stage->instr;
+						next_stage->op1 = stage->op1;
+						next_stage->op2 = stage->op2;
 						stage->current_cycle = -1;
 					}
 				}
@@ -563,11 +571,15 @@ advance_fu_fp(fu_fp_t *fu_list, wb_t *fp_wb) {
 			case 0:
 				if(next_stage == NULL) {                      /* is this the last stage in the fu? */
 					fp_wb->instr = stage->instr;
+					fp_wb->op1 = stage->op1;
+					fp_wb->op2 = stage->op2;
 					stage->current_cycle = -1;
 				} else {
 					if(next_stage->current_cycle == -1) {                                  /* move to next fu stage */
 						next_stage->current_cycle = next_stage->num_cycles-1;
 						next_stage->instr = stage->instr;
+						next_stage->op1 = stage->op1;
+						next_stage->op2 = stage->op2;
 						stage->current_cycle = -1;
 					}
 				}
@@ -627,7 +639,59 @@ fu_fp_done(fu_fp_t *fu_list)
 }
 
 int
-fu_int_cycles(fu_int_t *fu_list) // added
+fu_int_match_cycles(fu_int_t *fu_list, int cycles) // added
+{
+	fu_int_t *fu;
+	fu_int_stage_t *stage;
+	int j;
+
+	fu = fu_list;
+	while (fu != NULL) {
+		j = 0;
+		stage = fu->stage_list;
+		while (stage != NULL) {
+			if (stage->current_cycle != -1) {
+				// j is target
+				if (j == cycles)
+					return TRUE;
+			}
+			j++;
+			stage = stage->prev;
+		}
+		fu = fu->next;
+	}
+
+	return FALSE;
+}
+
+int
+fu_fp_match_cycles(fu_fp_t *fu_list, int cycles) // added
+{
+	fu_fp_t *fu;
+	fu_fp_stage_t *stage;
+	int j;
+
+	fu = fu_list;
+	while (fu != NULL) {
+		j = 0;
+		stage = fu->stage_list;
+		while (stage != NULL) {
+			if (stage->current_cycle != -1) {
+				// j is target
+				if (j == cycles)
+					return TRUE;
+			}
+			j++;
+			stage = stage->prev;
+		}
+		fu = fu->next;
+	}
+
+	return FALSE;
+}
+
+int
+fu_int_all_cycles(fu_int_t *fu_list) // added
 {
 	fu_int_t *fu;
 	fu_int_stage_t *stage;
@@ -637,7 +701,7 @@ fu_int_cycles(fu_int_t *fu_list) // added
 	if (fu != NULL) {
 		stage = fu->stage_list;
 		while (stage != NULL) {
-			cycles += stage->num_cycles;
+			cycles ++;
 			stage = stage->prev;
 		}
 	}
@@ -646,7 +710,7 @@ fu_int_cycles(fu_int_t *fu_list) // added
 }
 
 int
-fu_fp_cycles(fu_fp_t *fu_list) // added
+fu_fp_all_cycles(fu_fp_t *fu_list) // added
 {
 	fu_fp_t *fu;
 	fu_fp_stage_t *stage;
@@ -656,7 +720,7 @@ fu_fp_cycles(fu_fp_t *fu_list) // added
 	if (fu != NULL) {
 		stage = fu->stage_list;
 		while (stage != NULL) {
-			cycles += stage->num_cycles;
+			cycles ++;
 			stage = stage->prev;
 		}
 	}

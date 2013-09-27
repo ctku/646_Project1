@@ -21,11 +21,8 @@
 #define BIG_ENDIAN	1
 #define LITTLE_ENDIAN	2
 
-#define CTRL_HAZARD 4
-#define DATA_HAZARD 3
-#define HALT 2
-#define TRUE 1
-#define FALSE 0
+
+
 
 
 
@@ -68,7 +65,18 @@ typedef struct _state_t {
   wb_t fp_wb;
 
   int fetch_lock;
-  int branch_taken;
+#define STRUCT_HAZARD 5
+#define CTRL_HAZARD 4
+#define DATA_HAZARD 3
+#define HALT 2
+#define TRUE 1
+#define FALSE 0
+
+  int branch;
+#define NONE      0
+#define TAKEN     1
+#define NOT_TAKEN 2
+  signed long pc_shift;
 } state_t;
 
 extern state_t *state_create(int *, FILE *, FILE *);

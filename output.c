@@ -90,10 +90,10 @@ print_fu_group_int(fu_int_t *fu_int_list) {
     stage = fu_int->stage_list;
     while (stage != NULL) {
       if (stage->current_cycle != -1) {
-	printf("\t\tname '%s', stage %d (from end), cycle %d/%d, ",
+        printf("\t\tname '%s', stage %d (from end), cycle %d/%d, ",
 	       fu_int->name, j, stage->current_cycle, stage->num_cycles);
-	printInstruction(stage->instr);
-	printf("\n");
+        printInstruction(stage->instr);
+        printf("\n");
       }
       j++;
       stage = stage->prev;

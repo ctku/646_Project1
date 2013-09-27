@@ -51,7 +51,7 @@ main(int argc, char *argv[]) {
 	/* main sim loop */
 	for (i = 0, num_insn = 0; TRUE; i++) {
 
-		if (i==11)
+		if (i==160)
 			i = i;
 
 		printf("\n\n*** CYCLE %d\n", i);
@@ -62,7 +62,7 @@ main(int argc, char *argv[]) {
 		dprintf("[%d][E]\n",i);
 		done = execute(state);
 
-		if (done) //15,285
+		if (done) //15,285,430
 			break;
 
 		if (!(state->fetch_lock)) {
